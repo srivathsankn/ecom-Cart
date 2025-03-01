@@ -163,9 +163,6 @@ public class CartService {
 
     public Page<CartItemsDto> searchCartItems(String ownerEmail, Double minPrice, Double maxPrice, Double minQuantity, Double maxQuantity, Pageable pageable) {
 
-        Query query = new Query().with(pageable);
-        List<Criteria> criteriaList = new ArrayList<>();
-
         MatchOperation matchEmailOperation = Aggregation.match(Criteria.where("owner.email").is(ownerEmail));
         UnwindOperation unwindCartItemsOperation = Aggregation.unwind("cartItems");
         UnwindOperation unWindProductOperation = Aggregation.unwind("cartItems.product");
@@ -200,10 +197,12 @@ public class CartService {
         aggregationOperations.add(unWindProductOperation);
 
         if(minPrice != null) {
+            System.out.println("Min Price: "+minPrice);
             aggregationOperations.add(matchMinPriceOperation);
         }
 
         if (maxPrice != null) {
+            System.out.println("Max Price: "+maxPrice);
             aggregationOperations.add(matchMaxPriceOperation);
         }
 
@@ -216,6 +215,11 @@ public class CartService {
         }
 
         aggregationOperations.add(projectOperation);
+
+        Aggregation aggregationForCount = Aggregation.newAggregation(aggregationOperations);
+        AggregationResults<CartItemsDto> resultForCount = mongoTemplate.aggregate(aggregationForCount, Cart.class, CartItemsDto.class);
+        long totalCount = resultForCount.getMappedResults().stream().count();
+
         aggregationOperations.add(skipOperation);
         aggregationOperations.add(limitOperation);
         //aggregationOperations.add(groupOperation1);
@@ -226,7 +230,7 @@ public class CartService {
         AggregationResults<CartItemsDto> result = mongoTemplate.aggregate(aggregation, Cart.class, CartItemsDto.class);
         List<CartItemsDto> mappedResults = result.getMappedResults();
         mappedResults.forEach(System.out::println);
-        Page<CartItemsDto> cartItems = PageableExecutionUtils.getPage(mappedResults, pageable, () -> mappedResults.size());
+        Page<CartItemsDto> cartItems = PageableExecutionUtils.getPage(mappedResults, pageable, () -> totalCount);
         return cartItems;
     }
 
