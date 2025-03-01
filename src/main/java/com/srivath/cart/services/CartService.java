@@ -1,11 +1,14 @@
 package com.srivath.cart.services;
 
+import com.mongodb.BasicDBObject;
 import com.srivath.cart.dtos.CartItemsDto;
 import com.srivath.cart.dtos.OrderDto;
 import com.srivath.cart.events.Event;
 import com.srivath.cart.events.OrderPlacedEvent;
 import com.srivath.cart.events.PlaceOrderEvent;
+import com.srivath.cart.exceptions.AddressNotFoundInCartException;
 import com.srivath.cart.exceptions.CartNotFoundException;
+import com.srivath.cart.exceptions.PaymentMethodNotFoundInCartException;
 import com.srivath.cart.models.*;
 import com.srivath.cart.repositories.CartRepository;
 import org.slf4j.Logger;
@@ -16,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.*;
+import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.redis.RedisConnectionFailureException;
@@ -162,8 +166,6 @@ public class CartService {
         Query query = new Query().with(pageable);
         List<Criteria> criteriaList = new ArrayList<>();
 
-
-
         MatchOperation matchEmailOperation = Aggregation.match(Criteria.where("owner.email").is(ownerEmail));
         UnwindOperation unwindCartItemsOperation = Aggregation.unwind("cartItems");
         UnwindOperation unWindProductOperation = Aggregation.unwind("cartItems.product");
@@ -178,12 +180,21 @@ public class CartService {
         MatchOperation matchMinQtyOperation = Aggregation.match(Criteria.where("cartItems.quantity").gte(minQuantity));
         MatchOperation matchMaxQtyOperation = Aggregation.match(Criteria.where("cartItems.quantity").lte(maxQuantity));
 
+        SkipOperation skipOperation = Aggregation.skip((long) pageable.getPageNumber() * pageable.getPageSize());
+        LimitOperation limitOperation = Aggregation.limit(pageable.getPageSize());
+//        GroupOperation groupOperation = Aggregation.group("owner") // Grouping by owner
+//                .first("status").as("status") // Take the first 'status' from the group
+//                .first("totalAmount").as("totalAmount") // Take the first 'totalAmount' from the group
+//                .push(new BasicDBObject("itemName", "$itemName")
+//                        .append("itemPrice", "$itemPrice")
+//                        .append("itemQuantity", "$itemQuantity"))
+//                .as("items");
 
         List<AggregationOperation> aggregationOperations = new ArrayList<>();
 
-        if(ownerEmail != null && !ownerEmail.isEmpty()) {
+        //if(ownerEmail != null && !ownerEmail.isEmpty()) {
             aggregationOperations.add(matchEmailOperation);
-        }
+        //}
 
         aggregationOperations.add(unwindCartItemsOperation);
         aggregationOperations.add(unWindProductOperation);
@@ -205,6 +216,10 @@ public class CartService {
         }
 
         aggregationOperations.add(projectOperation);
+        aggregationOperations.add(skipOperation);
+        aggregationOperations.add(limitOperation);
+        //aggregationOperations.add(groupOperation1);
+
 
         Aggregation aggregation = Aggregation.newAggregation(aggregationOperations);
 
@@ -229,8 +244,15 @@ public class CartService {
         return cartRepository.save(cart);
     }
 
-    public Cart checkout(User user) throws InterruptedException {
+    public Cart checkout(User user) throws InterruptedException, PaymentMethodNotFoundInCartException, AddressNotFoundInCartException {
         Cart cart = getCartByEmailId(user.getEmail());
+
+        if (cart.getDeliveryAddress() == null)
+            throw new AddressNotFoundInCartException("Address not found in the cart. Please add address before checkout");
+
+        if (cart.getPaymentMethods().isEmpty())
+            throw new PaymentMethodNotFoundInCartException("Payment Method not found in the cart. Please add payment method before checkout");
+
         cart.setStatus("TO_BE_ORDERED");
         cart.setOrderedOn(LocalDate.now());
         cart.setOrderId(System.currentTimeMillis());
@@ -248,7 +270,7 @@ public class CartService {
         {
             OrderPlacedEvent orderPlacedEvent = (OrderPlacedEvent) event;
             OrderDto orderDto = orderPlacedEvent.getOrderDto();
-            Cart cart = cartRepository.findById(orderDto.getCartId()).orElseThrow(() -> new CartNotFoundException("Cart with id "+ orderDto.getCartId() + " is not found"));
+            Cart cart = cartRepository.findById(orderDto.getCartId()).orElseThrow(() -> new CartNotFoundException("Cart with id "+ orderDto.getCartId() + " is not found. Check Order "+ orderDto.getOrderId()));
             cart.setStatus("ORDERED");
             cart.setOrderId(orderDto.getOrderId());
             cart.setOrderedOn(orderDto.getOrderDate());

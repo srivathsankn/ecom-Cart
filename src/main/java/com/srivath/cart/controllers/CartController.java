@@ -4,7 +4,9 @@ import com.srivath.cart.dtos.CartAddressDto;
 import com.srivath.cart.dtos.CartPaymentMethodDto;
 import com.srivath.cart.dtos.CartDto;
 import com.srivath.cart.dtos.CartItemsDto;
+import com.srivath.cart.exceptions.AddressNotFoundInCartException;
 import com.srivath.cart.exceptions.CartNotFoundException;
+import com.srivath.cart.exceptions.PaymentMethodNotFoundInCartException;
 import com.srivath.cart.models.Cart;
 import com.srivath.cart.models.User;
 import com.srivath.cart.services.CartService;
@@ -28,21 +30,25 @@ public class CartController {
         return cartService.updateCart(cartDto.getProduct(),  cartDto.getQuantity(), cartDto.getUser());
     }
 
+    //Get Cart by cartId
     @GetMapping("/{id}")
     public Cart getCartDetails(@PathVariable String id) throws CartNotFoundException {
         return cartService.getCartById(id);
     }
 
+    //Get Cart by emailId
     @GetMapping("")
     public Cart getCartDetailsByEmailId(@RequestParam("user") String emailid) throws InterruptedException {
         return cartService.getCartByEmailId(emailid);
     }
 
+    //Get all Carts older than a particular date
     @GetMapping("/old")
     public List<Cart> getCartsCreatedBefore(@RequestParam("createdBefore") String date) {
         return cartService.getCartsCreatedBefore(LocalDate.parse(date));
     }
 
+    //Search Cart by createdOn, minAmount, maxAmount (paginated)
     @GetMapping("/search")
     public Page<Cart> getCartsCreatedWith (@RequestParam(required = false) String createdOn,
                                             @RequestParam(required = false) Double minAmount,
@@ -54,8 +60,9 @@ public class CartController {
         return cartService.searchCarts(createdOn, minAmount, maxAmount, pageable);
     }
 
+    //Search CartItems by ownerEmail, minPrice, maxPrice, minQuantity, maxQuantity (paginated)
     @GetMapping("/searchItems")
-    public Page<CartItemsDto> getCartItemsWith(@RequestParam(required = false) String ownerEmail,
+    public Page<CartItemsDto> getCartItemsWith(@RequestParam(required = true) String ownerEmail,
                                                @RequestParam(required = false) Double minPrice,
                                                @RequestParam(required = false) Double maxPrice,
                                                @RequestParam(required = false) Double minQuantity,
@@ -66,18 +73,23 @@ public class CartController {
         return cartService.searchCartItems(ownerEmail, minPrice, maxPrice, minQuantity, maxQuantity, pageable);
     }
 
+
+    //Add Payment Method to Cart
     @PostMapping("/paymentMethods")
     public Cart addPaymentMethod(@RequestBody CartPaymentMethodDto cartPaymentMethodDto) throws CartNotFoundException, InterruptedException {
         return cartService.addPaymentMethod(cartPaymentMethodDto.getPaymentMethod(), cartPaymentMethodDto.getUser());
     }
 
+    //Add Address to Cart
     @PostMapping("/address")
     public Cart addAddress(@RequestBody CartAddressDto cartAddressDto) throws CartNotFoundException, InterruptedException {
         return cartService.addAddress(cartAddressDto.getAddress(), cartAddressDto.getUser());
     }
 
+
+    //Finalize Cart and create Order (Message to Kafka)
     @PostMapping("/checkout")
-    public Cart checkout(@RequestBody User user) throws CartNotFoundException {
+    public Cart checkout(@RequestBody User user) throws CartNotFoundException, InterruptedException, AddressNotFoundInCartException, PaymentMethodNotFoundInCartException {
         return cartService.checkout(user);
     }
 
