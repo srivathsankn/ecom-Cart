@@ -8,6 +8,10 @@ import lombok.Setter;
 public class PlaceOrderEvent extends Event{
     private Cart cart;
 
+    public PlaceOrderEvent() {
+        this.setEventName("PLACE_ORDER");
+    }
+
     public PlaceOrderEvent(Cart cart) {
         this.cart = cart;
         this.setEventName("PLACE_ORDER");

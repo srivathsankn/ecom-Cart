@@ -1,15 +1,20 @@
 package com.srivath.cart.events;
 
-import com.srivath.cart.dtos.OrderDto;
+import com.srivath.cart.dtos.OrderDTO;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter @Setter
 public class OrderPlacedEvent extends Event {
-    private OrderDto orderDto;
+    private OrderDTO orderDTO;
 
-    public OrderPlacedEvent(OrderDto orderDto) {
-        this.orderDto = orderDto;
+    public OrderPlacedEvent()
+    {
+        this.setEventName("ORDER_PLACED");
+    }
+
+    public OrderPlacedEvent(OrderDTO orderDTO) {
+        this.orderDTO = orderDTO;
         this.setEventName("ORDER_PLACED");
     }
 }

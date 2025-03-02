@@ -7,14 +7,14 @@ import lombok.Setter;
 @Getter @Setter
 public class CartPaymentMethodDto {
     private String[] paymentMethod;
-    private User user;
+    private String userEmail;
 
     public CartPaymentMethodDto() {
     }
 
-    public CartPaymentMethodDto(String[] paymentMethod, User user) {
+    public CartPaymentMethodDto(String[] paymentMethod, String userEmail) {
         this.paymentMethod = paymentMethod;
-        this.user = user;
+        this.userEmail = userEmail;
     }
 
 

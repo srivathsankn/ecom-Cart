@@ -1,11 +1,11 @@
-package com.srivath.cart.models;
+package com.srivath.cart.dtos;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-import java.io.Serializable;
-
-@Data
-public class Address implements Serializable {
+@Getter
+@Setter
+public class CartAddressDTO {
     private String addressLine1;
     private String addressLine2;
     private String addressLine3;
@@ -14,4 +14,5 @@ public class Address implements Serializable {
     private String state;
     private String country;
     private String pinCode;
+    private String userEmail;
 }

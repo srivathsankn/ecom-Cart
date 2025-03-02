@@ -8,10 +8,9 @@ import java.time.LocalDate;
 
 @Getter
 @Setter
-public class OrderDto {
+public class OrderDTO {
     private String cartId;
     private User userId;
     private Long orderId;
     private LocalDate orderDate;
-
 }

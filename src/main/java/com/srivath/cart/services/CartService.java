@@ -1,13 +1,14 @@
 package com.srivath.cart.services;
 
-import com.mongodb.BasicDBObject;
+import com.srivath.cart.dtos.CartAddressDTO;
 import com.srivath.cart.dtos.CartItemsDto;
-import com.srivath.cart.dtos.OrderDto;
+import com.srivath.cart.dtos.OrderDTO;
 import com.srivath.cart.events.Event;
 import com.srivath.cart.events.OrderPlacedEvent;
 import com.srivath.cart.events.PlaceOrderEvent;
 import com.srivath.cart.exceptions.AddressNotFoundInCartException;
 import com.srivath.cart.exceptions.CartNotFoundException;
+import com.srivath.cart.exceptions.EmptyCartException;
 import com.srivath.cart.exceptions.PaymentMethodNotFoundInCartException;
 import com.srivath.cart.models.*;
 import com.srivath.cart.repositories.CartRepository;
@@ -19,7 +20,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.*;
-import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.redis.RedisConnectionFailureException;
@@ -32,7 +32,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 
 @Service
@@ -51,41 +50,30 @@ public class CartService {
     public static final Logger logger = LoggerFactory.getLogger(CartService.class);
 
     public Cart updateCart(Product product, Integer quantity, User user) throws InterruptedException {
-        //check if Cart exists for this user
-        //if not create a new cart  and add the product
+        //get Cart or get a new Cart created foe the user
         //if cart exists, check if the product exists in the cart
         //if product exists, update the quantity
         //if product does not exist, add the product
 
         Cart cart = getCartByEmailId(user.getEmail());
-        if (cart==null)
-        {
-            cart = new Cart();
-            cart.setOwner(user);
-            cart.setStatus("ACTIVE");
-            cart.setCreatedOn(LocalDate.now());
-            cart.setUpdatedOn(LocalDate.now());
 
+        boolean productExists = false;
+        for (CartItem cartItem: cart.getCartItems())
+        {
+            if (cartItem.getProduct().getId().equals(product.getId()))
+            {
+                cartItem.getProduct().setPrice(product.getPrice()); //Updating the price of the product
+                cartItem.setQuantity(cartItem.getQuantity()+quantity); //Adding the quantity to the existing quantity
+                productExists = true;
+                break;
+            }
+        }
+
+        if (!productExists)
+        {
             cart.getCartItems().add(new CartItem(product, quantity));
         }
-        else
-        {
-            boolean productExists = false;
-            for (CartItem cartItem: cart.getCartItems())
-            {
-                if (cartItem.getProduct().getId().equals(product.getId()))
-                {
-                    cartItem.getProduct().setPrice(product.getPrice()); //Updating the price of the product
-                    cartItem.setQuantity(cartItem.getQuantity()+quantity); //Adding the quantity to the existing quantity
-                    productExists = true;
-                    break;
-                }
-            }
-            if (!productExists)
-            {
-                cart.getCartItems().add(new CartItem(product, quantity));
-            }
-        }
+
         cart.setTotalAmount(calculateTotalAmount(cart));
         Cart savedCart = cartRepository.save(cart);
         redisTemplate.opsForHash().put("Cart",user.getEmail(),savedCart);
@@ -113,6 +101,19 @@ public class CartService {
         Cart cart = mongoTemplate.findOne(query, Cart.class);
         if (cart != null && redisUp)
             redisTemplate.opsForHash().put("Cart",emailId,cart);
+
+        //If no Active cart found, create a new cart.
+        if (cart == null)
+        {
+            cart = new Cart();
+            cart.setOwner(new User(emailId));
+            cart.setStatus("ACTIVE");
+            cart.setCreatedOn(LocalDate.now());
+            cart.setUpdatedOn(LocalDate.now());
+            cart.setTotalAmount(0.0);
+        }
+        cartRepository.save(cart);
+
         return cart;
     }
 
@@ -234,22 +235,35 @@ public class CartService {
         return cartItems;
     }
 
-    public Cart addPaymentMethod(String[] paymentMethods, User user) throws CartNotFoundException, InterruptedException {
-        Cart cart = getCartByEmailId(user.getEmail());
+    public Cart addPaymentMethod(String[] paymentMethods, String userEmail) throws CartNotFoundException, InterruptedException {
+        Cart cart = getCartByEmailId(userEmail);
         for (String paymentMethod : paymentMethods) {
-            cart.getPaymentMethods().add(PaymentMethods.valueOf(paymentMethod));
+            cart.getPaymentMethods().add(PaymentMethods.valueOf(paymentMethod.toUpperCase()));
         }
         return cartRepository.save(cart);
     }
 
-    public Cart addAddress(Address address, User user) throws InterruptedException {
-        Cart cart = getCartByEmailId(user.getEmail());
+    public Cart addAddress(CartAddressDTO cartAddressDTO) throws InterruptedException {
+        Address address = new Address();
+        address.setAddressLine1(cartAddressDTO.getAddressLine1());
+        address.setAddressLine2(cartAddressDTO.getAddressLine2());
+        address.setAddressLine3(cartAddressDTO.getAddressLine3());
+        address.setAddressLine4(cartAddressDTO.getAddressLine4());
+        address.setCity(cartAddressDTO.getCity());
+        address.setState(cartAddressDTO.getState());
+        address.setCountry(cartAddressDTO.getCountry());
+        address.setPinCode(cartAddressDTO.getPinCode());
+        Cart cart = getCartByEmailId(cartAddressDTO.getUserEmail());
         cart.setDeliveryAddress(address);
         return cartRepository.save(cart);
     }
 
-    public Cart checkout(User user) throws InterruptedException, PaymentMethodNotFoundInCartException, AddressNotFoundInCartException {
+    public Cart checkout(User user) throws InterruptedException, PaymentMethodNotFoundInCartException, AddressNotFoundInCartException, EmptyCartException {
         Cart cart = getCartByEmailId(user.getEmail());
+        if (cart.getCartItems().isEmpty())
+        {
+            throw new EmptyCartException("Cart is empty. Please add items to the cart before checkout");
+        }
 
         if (cart.getDeliveryAddress() == null)
             throw new AddressNotFoundInCartException("Address not found in the cart. Please add address before checkout");
@@ -273,7 +287,7 @@ public class CartService {
         if (event.getEventName().equals("ORDER_PLACED"))
         {
             OrderPlacedEvent orderPlacedEvent = (OrderPlacedEvent) event;
-            OrderDto orderDto = orderPlacedEvent.getOrderDto();
+            OrderDTO orderDto = orderPlacedEvent.getOrderDTO();
             Cart cart = cartRepository.findById(orderDto.getCartId()).orElseThrow(() -> new CartNotFoundException("Cart with id "+ orderDto.getCartId() + " is not found. Check Order "+ orderDto.getOrderId()));
             cart.setStatus("ORDERED");
             cart.setOrderId(orderDto.getOrderId());

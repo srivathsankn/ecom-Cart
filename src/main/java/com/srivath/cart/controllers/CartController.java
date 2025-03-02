@@ -1,11 +1,12 @@
 package com.srivath.cart.controllers;
 
-import com.srivath.cart.dtos.CartAddressDto;
+import com.srivath.cart.dtos.CartAddressDTO;
 import com.srivath.cart.dtos.CartPaymentMethodDto;
 import com.srivath.cart.dtos.CartDto;
 import com.srivath.cart.dtos.CartItemsDto;
 import com.srivath.cart.exceptions.AddressNotFoundInCartException;
 import com.srivath.cart.exceptions.CartNotFoundException;
+import com.srivath.cart.exceptions.EmptyCartException;
 import com.srivath.cart.exceptions.PaymentMethodNotFoundInCartException;
 import com.srivath.cart.models.Cart;
 import com.srivath.cart.models.User;
@@ -31,7 +32,7 @@ public class CartController {
     }
 
     //Get Cart by cartId
-    @GetMapping("/{id}")
+    @GetMapping("id/{id}")
     public Cart getCartDetails(@PathVariable String id) throws CartNotFoundException {
         return cartService.getCartById(id);
     }
@@ -77,19 +78,19 @@ public class CartController {
     //Add Payment Method to Cart
     @PostMapping("/paymentMethods")
     public Cart addPaymentMethod(@RequestBody CartPaymentMethodDto cartPaymentMethodDto) throws CartNotFoundException, InterruptedException {
-        return cartService.addPaymentMethod(cartPaymentMethodDto.getPaymentMethod(), cartPaymentMethodDto.getUser());
+        return cartService.addPaymentMethod(cartPaymentMethodDto.getPaymentMethod(), cartPaymentMethodDto.getUserEmail());
     }
 
     //Add Address to Cart
     @PostMapping("/address")
-    public Cart addAddress(@RequestBody CartAddressDto cartAddressDto) throws CartNotFoundException, InterruptedException {
-        return cartService.addAddress(cartAddressDto.getAddress(), cartAddressDto.getUser());
+    public Cart addAddress(@RequestBody CartAddressDTO cartAddressDTO) throws InterruptedException {
+        return cartService.addAddress(cartAddressDTO);
     }
 
 
     //Finalize Cart and create Order (Message to Kafka)
     @PostMapping("/checkout")
-    public Cart checkout(@RequestBody User user) throws CartNotFoundException, InterruptedException, AddressNotFoundInCartException, PaymentMethodNotFoundInCartException {
+    public Cart checkout(@RequestBody User user) throws InterruptedException, AddressNotFoundInCartException, PaymentMethodNotFoundInCartException, EmptyCartException {
         return cartService.checkout(user);
     }
 

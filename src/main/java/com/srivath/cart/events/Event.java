@@ -4,6 +4,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Getter @Setter
-public class Event {
+public class Event  {
     private String eventName;
 }

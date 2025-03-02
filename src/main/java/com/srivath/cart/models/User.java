@@ -15,13 +15,13 @@ public class User implements Serializable {
 
     }
 
-    User(String userName, String email)
+    public User(String userName, String email)
     {
         this.userName = userName;
         this.email = email;
     }
 
-    User(String emailId)
+    public User(String emailId)
     {
         this.email = emailId;
     }
