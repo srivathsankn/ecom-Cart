@@ -2,16 +2,17 @@ package com.srivath.cart.services;
 
 import com.srivath.cart.dtos.CartAddressDTO;
 import com.srivath.cart.dtos.CartItemsDto;
-import com.srivath.cart.dtos.OrderDTO;
-import com.srivath.cart.events.Event;
-import com.srivath.cart.events.OrderPlacedEvent;
-import com.srivath.cart.events.PlaceOrderEvent;
 import com.srivath.cart.exceptions.AddressNotFoundInCartException;
 import com.srivath.cart.exceptions.CartNotFoundException;
 import com.srivath.cart.exceptions.EmptyCartException;
 import com.srivath.cart.exceptions.PaymentMethodNotFoundInCartException;
 import com.srivath.cart.models.*;
 import com.srivath.cart.repositories.CartRepository;
+import com.srivath.ecombasedomain.dtos.CartOrderDto;
+import com.srivath.ecombasedomain.dtos.OrderDto;
+import com.srivath.ecombasedomain.events.Event;
+import com.srivath.ecombasedomain.events.OrderPlacedEvent;
+import com.srivath.ecombasedomain.events.PlaceOrderEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -100,7 +101,7 @@ public class CartService {
         Query query = new Query(Criteria.where("status").is("ACTIVE").and("owner.email").is(emailId));
         Cart cart = mongoTemplate.findOne(query, Cart.class);
         if (cart != null && redisUp)
-            redisTemplate.opsForHash().put("Cart",emailId,cart);
+
 
         //If no Active cart found, create a new cart.
         if (cart == null)
@@ -113,7 +114,7 @@ public class CartService {
             cart.setTotalAmount(0.0);
         }
         cartRepository.save(cart);
-
+        redisTemplate.opsForHash().put("Cart",emailId,cart);
         return cart;
     }
 
@@ -240,7 +241,15 @@ public class CartService {
         for (String paymentMethod : paymentMethods) {
             cart.getPaymentMethods().add(PaymentMethods.valueOf(paymentMethod.toUpperCase()));
         }
-        return cartRepository.save(cart);
+        Cart savedCart = cartRepository.save(cart);
+        try {
+            redisTemplate.opsForHash().put("Cart", userEmail, savedCart);
+        }
+        catch (RedisConnectionFailureException e) {
+            e.printStackTrace();
+            System.out.println("Redis is down. Hence, not updating the cache");
+        }
+        return savedCart;
     }
 
     public Cart addAddress(CartAddressDTO cartAddressDTO) throws InterruptedException {
@@ -255,7 +264,15 @@ public class CartService {
         address.setPinCode(cartAddressDTO.getPinCode());
         Cart cart = getCartByEmailId(cartAddressDTO.getUserEmail());
         cart.setDeliveryAddress(address);
-        return cartRepository.save(cart);
+        Cart savedCart = cartRepository.save(cart);
+        try {
+            redisTemplate.opsForHash().put("Cart", cartAddressDTO.getUserEmail(), savedCart);
+        }
+        catch (RedisConnectionFailureException e) {
+            e.printStackTrace();
+            System.out.println("Redis is down. Hence, not updating the cache");
+        }
+        return savedCart;
     }
 
     public Cart checkout(User user) throws InterruptedException, PaymentMethodNotFoundInCartException, AddressNotFoundInCartException, EmptyCartException {
@@ -276,7 +293,11 @@ public class CartService {
         cart.setOrderId(System.currentTimeMillis());
         Cart savedCart = cartRepository.save(cart);
         //Write to Kafka for Order Service to pickup
-        kafkaTemplate.send(topicName, new PlaceOrderEvent(savedCart));
+        CartOrderDto cartOrderDto = new CartOrderDto();
+        cartOrderDto.setCartId(savedCart.getId());
+        cartOrderDto.setUserEmail(savedCart.getOwner().getEmail());
+        cartOrderDto.setTotalAmount(savedCart.getTotalAmount());
+        kafkaTemplate.send(topicName, new PlaceOrderEvent(cartOrderDto));
         //Delete from Redis as well as Cart Repository
         redisTemplate.opsForHash().delete("Cart", user.getEmail());
         return savedCart;
@@ -287,7 +308,7 @@ public class CartService {
         if (event.getEventName().equals("ORDER_PLACED"))
         {
             OrderPlacedEvent orderPlacedEvent = (OrderPlacedEvent) event;
-            OrderDTO orderDto = orderPlacedEvent.getOrderDTO();
+            OrderDto orderDto = orderPlacedEvent.getOrderDto();
             Cart cart = cartRepository.findById(orderDto.getCartId()).orElseThrow(() -> new CartNotFoundException("Cart with id "+ orderDto.getCartId() + " is not found. Check Order "+ orderDto.getOrderId()));
             cart.setStatus("ORDERED");
             cart.setOrderId(orderDto.getOrderId());
