@@ -75,9 +75,17 @@ public class CartService {
             cart.getCartItems().add(new CartItem(product, quantity));
         }
 
-        cart.setTotalAmount(calculateTotalAmount(cart));
+        cart.setTotalAmount(Double.valueOf(calculateTotalAmount(cart)));
         Cart savedCart = cartRepository.save(cart);
-        redisTemplate.opsForHash().put("Cart",user.getEmail(),savedCart);
+        try
+        {
+            redisTemplate.opsForHash().put("Cart",user.getEmail(),savedCart);
+        }
+        catch (RedisConnectionFailureException e)
+        {
+            e.printStackTrace();
+            System.out.println("Redis is down. Hence, not updating the cache");
+        }
         return savedCart;
     }
 
@@ -100,7 +108,6 @@ public class CartService {
         //Thread.sleep(1000);
         Query query = new Query(Criteria.where("status").is("ACTIVE").and("owner.email").is(emailId));
         Cart cart = mongoTemplate.findOne(query, Cart.class);
-        if (cart != null && redisUp)
 
 
         //If no Active cart found, create a new cart.
@@ -111,10 +118,16 @@ public class CartService {
             cart.setStatus("ACTIVE");
             cart.setCreatedOn(LocalDate.now());
             cart.setUpdatedOn(LocalDate.now());
-            cart.setTotalAmount(0.0);
+            cart.setTotalAmount(Double.valueOf(0));
         }
         cartRepository.save(cart);
-        redisTemplate.opsForHash().put("Cart",emailId,cart);
+        if (redisUp)
+        {
+            redisTemplate.opsForHash().put("Cart", emailId, cart);
+            //System.out.println("Cart fetched from DB and saved to cache");
+        }
+
+        //redisTemplate.opsForHash().put("Cart",emailId,cart);
         return cart;
     }
 
@@ -239,7 +252,7 @@ public class CartService {
     public Cart addPaymentMethod(String[] paymentMethods, String userEmail) throws CartNotFoundException, InterruptedException {
         Cart cart = getCartByEmailId(userEmail);
         for (String paymentMethod : paymentMethods) {
-            cart.getPaymentMethods().add(PaymentMethods.valueOf(paymentMethod.toUpperCase()));
+            cart.getPayments().add(PaymentMethods.valueOf(paymentMethod.toUpperCase()));
         }
         Cart savedCart = cartRepository.save(cart);
         try {
@@ -285,12 +298,12 @@ public class CartService {
         if (cart.getDeliveryAddress() == null)
             throw new AddressNotFoundInCartException("Address not found in the cart. Please add address before checkout");
 
-        if (cart.getPaymentMethods().isEmpty())
+        if (cart.getPayments().isEmpty())
             throw new PaymentMethodNotFoundInCartException("Payment Method not found in the cart. Please add payment method before checkout");
 
         cart.setStatus("TO_BE_ORDERED");
         cart.setOrderedOn(LocalDate.now());
-        cart.setOrderId(System.currentTimeMillis());
+        //cart.setOrderId(System.currentTimeMillis());
         Cart savedCart = cartRepository.save(cart);
         //Write to Kafka for Order Service to pickup
         CartOrderDto cartOrderDto = new CartOrderDto();
@@ -299,7 +312,14 @@ public class CartService {
         cartOrderDto.setTotalAmount(savedCart.getTotalAmount());
         kafkaTemplate.send(topicName, new PlaceOrderEvent(cartOrderDto));
         //Delete from Redis as well as Cart Repository
-        redisTemplate.opsForHash().delete("Cart", user.getEmail());
+        try
+        {
+            redisTemplate.opsForHash().delete("Cart", user.getEmail());
+        }
+        catch (RedisConnectionFailureException e) {
+            e.printStackTrace();
+            System.out.println("Redis is down. Hence, not updating the cache");
+        }
         return savedCart;
     }
 

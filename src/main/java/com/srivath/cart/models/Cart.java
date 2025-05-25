@@ -5,7 +5,6 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.redis.core.RedisHash;
 
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -32,14 +31,14 @@ public class Cart implements Serializable {
     private LocalDate OrderedOn;
     private Long orderId;
     private Address deliveryAddress;
-    private Set<PaymentMethods> paymentMethods;
+    private Set<Payment> Payments;
     private Double totalAmount;
 
 
 
     public Cart() {
         cartItems = new ArrayList<>();
-        paymentMethods = new HashSet<>();
+        Payments = new HashSet<>();
 
     }
 
