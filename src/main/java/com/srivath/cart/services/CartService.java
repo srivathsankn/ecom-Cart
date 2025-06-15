@@ -249,21 +249,21 @@ public class CartService {
         return cartItems;
     }
 
-    public Cart addPaymentMethod(String[] paymentMethods, String userEmail) throws CartNotFoundException, InterruptedException {
-        Cart cart = getCartByEmailId(userEmail);
-        for (String paymentMethod : paymentMethods) {
-            cart.getPayments().add(PaymentMethods.valueOf(paymentMethod.toUpperCase()));
-        }
-        Cart savedCart = cartRepository.save(cart);
-        try {
-            redisTemplate.opsForHash().put("Cart", userEmail, savedCart);
-        }
-        catch (RedisConnectionFailureException e) {
-            e.printStackTrace();
-            System.out.println("Redis is down. Hence, not updating the cache");
-        }
-        return savedCart;
-    }
+//    public Cart addPaymentMethod(String[] paymentMethods, String userEmail) throws CartNotFoundException, InterruptedException {
+//        Cart cart = getCartByEmailId(userEmail);
+//        for (String paymentMethod : paymentMethods) {
+//            cart.getPayments().add(new Payment(PaymentMethod.valueOf(paymentMethod.toUpperCase())));
+//        }
+//        Cart savedCart = cartRepository.save(cart);
+//        try {
+//            redisTemplate.opsForHash().put("Cart", userEmail, savedCart);
+//        }
+//        catch (RedisConnectionFailureException e) {
+//            e.printStackTrace();
+//            System.out.println("Redis is down. Hence, not updating the cache");
+//        }
+//        return savedCart;
+//    }
 
     public Cart addAddress(CartAddressDTO cartAddressDTO) throws InterruptedException {
         Address address = new Address();
@@ -298,8 +298,8 @@ public class CartService {
         if (cart.getDeliveryAddress() == null)
             throw new AddressNotFoundInCartException("Address not found in the cart. Please add address before checkout");
 
-        if (cart.getPayments().isEmpty())
-            throw new PaymentMethodNotFoundInCartException("Payment Method not found in the cart. Please add payment method before checkout");
+//        if (cart.getPayments().isEmpty())
+//            throw new PaymentMethodNotFoundInCartException("Payment Method not found in the cart. Please add payment method before checkout");
 
         cart.setStatus("TO_BE_ORDERED");
         cart.setOrderedOn(LocalDate.now());
@@ -310,6 +310,9 @@ public class CartService {
         cartOrderDto.setCartId(savedCart.getId());
         cartOrderDto.setUserEmail(savedCart.getOwner().getEmail());
         cartOrderDto.setTotalAmount(savedCart.getTotalAmount());
+        cartOrderDto.setUserName(savedCart.getOwner().getUserName());
+        cartOrderDto.setUserPhone(savedCart.getOwner().getPhoneNumber());
+
         kafkaTemplate.send(topicName, new PlaceOrderEvent(cartOrderDto));
         //Delete from Redis as well as Cart Repository
         try

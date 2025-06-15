@@ -76,10 +76,10 @@ public class CartController {
 
 
     //Add Payment Method to Cart
-    @PostMapping("/paymentMethods")
-    public Cart addPaymentMethod(@RequestBody CartPaymentMethodDto cartPaymentMethodDto) throws CartNotFoundException, InterruptedException {
-        return cartService.addPaymentMethod(cartPaymentMethodDto.getPaymentMethod(), cartPaymentMethodDto.getUserEmail());
-    }
+//    @PostMapping("/paymentMethods")
+//    public Cart addPaymentMethod(@RequestBody CartPaymentMethodDto cartPaymentMethodDto) throws CartNotFoundException, InterruptedException {
+//        return cartService.addPaymentMethod(cartPaymentMethodDto.getPaymentMethod(), cartPaymentMethodDto.getUserEmail());
+//    }
 
     //Add Address to Cart
     @PostMapping("/address")

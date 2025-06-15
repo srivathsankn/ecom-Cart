@@ -31,14 +31,14 @@ public class Cart implements Serializable {
     private LocalDate OrderedOn;
     private Long orderId;
     private Address deliveryAddress;
-    private Set<Payment> Payments;
+    private Set<Payment> payments;
     private Double totalAmount;
 
 
 
     public Cart() {
         cartItems = new ArrayList<>();
-        Payments = new HashSet<>();
+        payments = new HashSet<>();
 
     }
 

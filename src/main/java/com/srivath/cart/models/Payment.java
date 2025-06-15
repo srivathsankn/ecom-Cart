@@ -4,14 +4,14 @@ import lombok.Data;
 
 @Data
 public class Payment {
-    long amount;
-    String paymentMethod;
+
+    PaymentMethod paymentMethod;
 
     public Payment() {
     }
 
-    public Payment(long amount, String paymentMethod) {
-        this.amount = amount;
+    public Payment( PaymentMethod paymentMethod) {
+
         this.paymentMethod = paymentMethod;
     }
 
