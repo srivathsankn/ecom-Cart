@@ -1,9 +1,7 @@
 package com.srivath.cart.controllerAdvices;
 
-import com.srivath.cart.exceptions.AddressNotFoundInCartException;
-import com.srivath.cart.exceptions.CartNotFoundException;
-import com.srivath.cart.exceptions.EmptyCartException;
-import com.srivath.cart.exceptions.PaymentMethodNotFoundInCartException;
+import com.srivath.cart.exceptions.*;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -11,22 +9,28 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(CartNotFoundException.class)
-    public String handleCartNotFoundException(CartNotFoundException e){
-        return e.getMessage();
+    public ResponseEntity<String>  handleCartNotFoundException(CartNotFoundException e){
+        return ResponseEntity.badRequest().body(e.getMessage());
     }
 
     @ExceptionHandler(EmptyCartException.class)
-    public String handleEmptyCartException(EmptyCartException e){
-        return e.getMessage();
+    public ResponseEntity<String>  handleEmptyCartException(EmptyCartException e){
+        return ResponseEntity.badRequest().body(e.getMessage());
     }
 
     @ExceptionHandler(AddressNotFoundInCartException.class)
-    public String handleCartNotFoundException(AddressNotFoundInCartException e){
-        return e.getMessage();
+    public ResponseEntity<String>  handleCartNotFoundException(AddressNotFoundInCartException e){
+        return ResponseEntity.badRequest().body(e.getMessage());
     }
 
     @ExceptionHandler(PaymentMethodNotFoundInCartException.class)
-    public String handleCartNotFoundException(PaymentMethodNotFoundInCartException e){
-        return e.getMessage();
+    public ResponseEntity<String> handleCartNotFoundException(PaymentMethodNotFoundInCartException e){
+        return ResponseEntity.badRequest().body(e.getMessage());
     }
+
+    @ExceptionHandler(UserDetailsNotProvidedException.class)
+    public ResponseEntity<String> handleCartNotFoundException(UserDetailsNotProvidedException e){
+        return ResponseEntity.badRequest().body(e.getMessage());
+    }
+
 }

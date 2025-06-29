@@ -2,10 +2,7 @@ package com.srivath.cart.services;
 
 import com.srivath.cart.dtos.CartAddressDTO;
 import com.srivath.cart.dtos.CartItemsDto;
-import com.srivath.cart.exceptions.AddressNotFoundInCartException;
-import com.srivath.cart.exceptions.CartNotFoundException;
-import com.srivath.cart.exceptions.EmptyCartException;
-import com.srivath.cart.exceptions.PaymentMethodNotFoundInCartException;
+import com.srivath.cart.exceptions.*;
 import com.srivath.cart.models.*;
 import com.srivath.cart.repositories.CartRepository;
 import com.srivath.ecombasedomain.dtos.CartOrderDto;
@@ -50,13 +47,21 @@ public class CartService {
 
     public static final Logger logger = LoggerFactory.getLogger(CartService.class);
 
-    public Cart updateCart(Product product, Integer quantity, User user) throws InterruptedException {
+    public Cart updateCart(Product product, Integer quantity, User user) throws InterruptedException, UserDetailsNotProvidedException {
         //get Cart or get a new Cart created foe the user
         //if cart exists, check if the product exists in the cart
         //if product exists, update the quantity
         //if product does not exist, add the product
 
+        //Check for Name, Email and Phone Number to be populated in User
+        if (user.getUserName() == null || user.getEmail() == null || user.getPhoneNumber() == null)
+        {
+            throw new UserDetailsNotProvidedException("User details are not complete. Please provide Name, Email and Phone Number before checkout");
+        }
+
         Cart cart = getCartByEmailId(user.getEmail());
+
+        cart.setOwner(user); //Setting the owner of the cart
 
         boolean productExists = false;
         for (CartItem cartItem: cart.getCartItems())
@@ -288,8 +293,15 @@ public class CartService {
         return savedCart;
     }
 
-    public Cart checkout(User user) throws InterruptedException, PaymentMethodNotFoundInCartException, AddressNotFoundInCartException, EmptyCartException {
+    public Cart checkout(User user) throws InterruptedException, AddressNotFoundInCartException, EmptyCartException, UserDetailsNotProvidedException {
         Cart cart = getCartByEmailId(user.getEmail());
+
+        //Check for Name, Email and Phone Number to be populated in User
+        if (user.getUserName() == null || user.getEmail() == null || user.getPhoneNumber() == null)
+        {
+            throw new UserDetailsNotProvidedException("User details are not complete. Please provide Name, Email and Phone Number before checkout");
+        }
+
         if (cart.getCartItems().isEmpty())
         {
             throw new EmptyCartException("Cart is empty. Please add items to the cart before checkout");

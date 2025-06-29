@@ -4,10 +4,7 @@ import com.srivath.cart.dtos.CartAddressDTO;
 import com.srivath.cart.dtos.CartPaymentMethodDto;
 import com.srivath.cart.dtos.CartDto;
 import com.srivath.cart.dtos.CartItemsDto;
-import com.srivath.cart.exceptions.AddressNotFoundInCartException;
-import com.srivath.cart.exceptions.CartNotFoundException;
-import com.srivath.cart.exceptions.EmptyCartException;
-import com.srivath.cart.exceptions.PaymentMethodNotFoundInCartException;
+import com.srivath.cart.exceptions.*;
 import com.srivath.cart.models.Cart;
 import com.srivath.cart.models.User;
 import com.srivath.cart.services.CartService;
@@ -27,7 +24,7 @@ public class CartController {
     CartService cartService;
 
     @PostMapping("")
-    public Cart addProductToCart(@RequestBody CartDto cartDto) throws InterruptedException {
+    public Cart addProductToCart(@RequestBody CartDto cartDto) throws InterruptedException, UserDetailsNotProvidedException {
         return cartService.updateCart(cartDto.getProduct(),  cartDto.getQuantity(), cartDto.getUser());
     }
 
@@ -90,7 +87,7 @@ public class CartController {
 
     //Finalize Cart and create Order (Message to Kafka)
     @PostMapping("/checkout")
-    public Cart checkout(@RequestBody User user) throws InterruptedException, AddressNotFoundInCartException, PaymentMethodNotFoundInCartException, EmptyCartException {
+    public Cart checkout(@RequestBody User user) throws InterruptedException, AddressNotFoundInCartException, PaymentMethodNotFoundInCartException, EmptyCartException, UserDetailsNotProvidedException {
         return cartService.checkout(user);
     }
 
